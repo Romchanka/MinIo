@@ -1,25 +1,31 @@
 package com.example.demo.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
-@Table(name = "Clients")
-@Data
+@Table(name = "Client")
+@Getter
+@Setter
 public class Client {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private long id;
 
     @Column(nullable = false)
-    private String name;
+    private String firstName;
+
     @Column(nullable = false)
-    private String surname;
+    private String lastName;
+
     @Column(nullable = false)
     private String patronymic;
+
     @Column(nullable = false)
-    private String tin;                     /* ИНН*/
+    private String eTag;
+
     @Column(nullable = false)
-    private String documents;   // путь до файла на сервере
+    private String document;
 
 }
