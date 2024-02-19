@@ -1,5 +1,6 @@
 package com.example.demo.service.impl;
 
+import com.example.demo.service.ConvertorService;
 import com.example.demo.service.MinIoService;
 import io.minio.*;
 import io.minio.messages.Bucket;
@@ -15,14 +16,12 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.UUID;
 
-import static sun.font.CreatedFontTracker.MAX_FILE_SIZE;
 
 @RequiredArgsConstructor
 @Service
 public class MinIoServiceImpl implements MinIoService {
     private final MinioClient minioClient;
-    private final ConvertorServiceImpl convertor;
-
+    private final ConvertorService convertorService;
 
     @Override
     public Bucket createBucket(String bucketName) {
@@ -47,46 +46,19 @@ public class MinIoServiceImpl implements MinIoService {
     @Override
     public ResponseEntity<String> uploadFile(String bucketName, MultipartFile file) {
         try {
-            // Проверка наличия bucketName и файла
-            if (bucketName == null || file == null) {
-                throw new IllegalArgumentException("Bucket name and file cannot be null.");
-            }
-
-            // Проверка размера файла, если это необходимо
-            long fileSize = file.getSize();
-            if (fileSize > MAX_FILE_SIZE) {
-                throw new IllegalArgumentException("File size exceeds the maximum allowed size.");
-            }
-
-            String originalFileName = file.getOriginalFilename();
-            byte[] fileBytes = file.getBytes();
-            String objectName = UUID.randomUUID() + "-" + originalFileName;
-
-            // Проверка наличия клиента MinIO
-            if (minioClient == null) {
-                throw new RuntimeException("MinIO client is null.");
-            }
-
-            // Загрузка объекта в бакет MinIO
-            minioClient.putObject(PutObjectArgs.builder()
+            byte[] pdfBytes = convertorService.imageToPDF(file);
+            ObjectWriteResponse objectWriteResponse = minioClient.putObject(PutObjectArgs.builder()
                     .bucket(bucketName)
-                    .object(objectName)
-                    .stream(new ByteArrayInputStream(fileBytes), fileBytes.length, -1)
+                    .object(UUID.randomUUID() + ".pdf")
+                    .stream(new ByteArrayInputStream(pdfBytes), pdfBytes.length, -1)
                     .build());
+            objectWriteResponse.headers();
 
-            // Получение URL загруженного файла
-            String fileUrl = minioClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
-                    .bucket(bucketName)
-                    .object(objectName)
-                    .build());
-
-            return ResponseEntity.ok("File uploaded successfully.\nURL: " + fileUrl);
-        } catch (IllegalArgumentException e) {
-            // Перехватывать исключение IllegalArgumentException и возвращать ошибку клиенту
-            return ResponseEntity.badRequest().body("Error uploading file: " + e.getMessage());
+            // Возвращаем ResponseEntity с URL путем к загруженному файлу
+            return ResponseEntity.ok("e tag :" + objectWriteResponse.etag() +
+                    "\nfile name: " + objectWriteResponse.object());
         } catch (Exception e) {
-            // Перехватывать остальные исключения и возвращать ошибку сервера клиенту
-            throw new RuntimeException("Error uploading file: " + e.getMessage());
+            throw new RuntimeException("Ошибка загрузки файла: " + e.getMessage());
         }
     }
 
